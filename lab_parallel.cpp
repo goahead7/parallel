@@ -403,8 +403,6 @@ requires (
 }
 
 
-
-
 void main()
 {
     printf("IntegratePartialSum\n");
@@ -431,9 +429,4 @@ void main()
     printf("IntegrateFalseSharingOMP\n");
     ShowExperimentResult(IntegrateFalseSharingOMP);
 
-    /*set_num_threads(4);
-    unsigned V[16];
-    for (unsigned i = 0; i < std::size(V); ++i)
-        V[i] = i + 1;
-    std::cout << "Average: " << reduce_vector(V, std::size(V), [](auto x, auto y) {return x + y; }, 0u) / std::size(V) << '\n';*/
 }
