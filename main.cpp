@@ -329,7 +329,7 @@ double RandomizeArray(unsigned seed, unsigned* V, size_t n, unsigned min, unsign
 }
 
 ExperimentResult runRandomizeExperiment(r_t f) {
-    size_t ArrayLength = 1000000;
+    size_t ArrayLength = 400000;
     unsigned Array[ArrayLength];
     unsigned Seed = 100;
 
