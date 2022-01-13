@@ -231,13 +231,12 @@ void showExperimentResults(I_t I) {
     printf("%10s\t %10s\t %10s\n", "Result", "Time", "Acceleration");
 
     printf("%10g\t %10g\t% 10g\n", R.result, R.time, T1/R.time);
-    // printf("%d,%g,%g\n", 1, R.time, T1 / R.time);
 
     for (int T = 2; T <= omp_get_num_procs(); ++T) {
         set_num_threads(T);
         ExperimentResult result = runExperiment(I);
         printf("%10g\t %10g\t %10g\n", result.result, result.time, T1/result.time);
-        // printf("%d,%g,%g\n", T, result.time, T1 / result.time);
+        
     }
 
     cout << endl;
@@ -250,25 +249,31 @@ double integrate_reduction(double a, double b, f_t F)
 }
 
 int main() {
-    //set_num_threads(1);
-
-    std::cout << "integrateDefault" << std::endl;
-    showExperimentResults(integrateDefault);
-    std::cout << "integrateCrit" << std::endl;
+    std::cout << "integrate_Crit" << std::endl;
     showExperimentResults(integrateCrit);
-    std::cout << "integrateMutex" << std::endl;
+    
+    std::cout << "integrate_Mutex" << std::endl;
     showExperimentResults(integrateMutex);
-    std::cout << "integrateArr" << std::endl;
-    showExperimentResults(integrateArr);
-    std::cout << "integrateArrAlign" << std::endl;
+    
+    std::cout << "integrate_ArrAlign" << std::endl;
     showExperimentResults(integrateArrAlign);
-    std::cout << "integrateReduction" << std::endl;
-    showExperimentResults(integrateReduction);
-    std::cout << "integratePS" << std::endl;
+
+    std::cout << "integrate_Default" << std::endl;
+    showExperimentResults(integrateDefault);
+    
+    std::cout << "integrate_Arr" << std::endl;
+    showExperimentResults(integrateArr);
+    
+    std::cout << "integrate_PS" << std::endl;
     showExperimentResults(integratePS);
-    std::cout << "integrateAtomic" << std::endl;
+    
+    std::cout << "integrate_Reduction" << std::endl;
+    showExperimentResults(integrateReduction);
+    
+    std::cout << "integrate_Atomic" << std::endl;
     showExperimentResults(integrateAtomic);
-    std::cout << "integrateReductionBarrier" << std::endl;
+    
+    std::cout << "integrate_Reduction_Barrier" << std::endl;
     showExperimentResults(integrate_reduction);
 
 
