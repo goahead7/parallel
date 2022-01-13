@@ -14,6 +14,7 @@
 
 typedef double (*f_t)(double);
 typedef double (*E_t)(double, double, f_t);
+typedef double (*r_t) (unsigned, unsigned*, size_t, unsigned, unsigned);
 
 struct ExperimentResult {
     double result;
@@ -248,33 +249,184 @@ double integrate_reduction(double a, double b, f_t F)
     return reduce_range(a, b, STEPS, F, [](auto x, auto y){return x + y;}, 0.0)*dx;
 }
 
-int main() {
-    std::cout << "integrate_Crit" << std::endl;
-    showExperimentResults(integrateCrit);
-    
-    std::cout << "integrate_Mutex" << std::endl;
-    showExperimentResults(integrateMutex);
-    
-    std::cout << "integrate_ArrAlign" << std::endl;
-    showExperimentResults(integrateArrAlign);
+uint64_t pow(uint64_t x, unsigned n) {
+    if (n==0)
+        return 1;
+    else if (n==1)
+        return x;
+    else if (n % 2 == 0 )
+        return pow( x * x, n/2);
+    else
+        return pow( x * x, n/2)*x;
+}
 
-    std::cout << "integrate_Default" << std::endl;
-    showExperimentResults(integrateDefault);
-    
-    std::cout << "integrate_Arr" << std::endl;
-    showExperimentResults(integrateArr);
-    
-    std::cout << "integrate_PS" << std::endl;
-    showExperimentResults(integratePS);
-    
-    std::cout << "integrate_Reduction" << std::endl;
-    showExperimentResults(integrateReduction);
-    
-    std::cout << "integrate_Atomic" << std::endl;
-    showExperimentResults(integrateAtomic);
-    
-    std::cout << "integrate_Reduction_Barrier" << std::endl;
-    showExperimentResults(integrate_reduction);
+uint64_t getB(unsigned i) {
+    uint64_t a = 6364136223846793005;
+    uint64_t sum = 0;
+
+    for (unsigned j = 0; j < i; ++j) {
+        sum += pow(a, j + 1);
+    }
+
+    return sum;
+}
+
+
+
+/*double RandomizeArraySingle(unsigned seed, unsigned* V, size_t n, unsigned min, unsigned max) {
+    uint64_t a = 6364136223846793005;
+    unsigned b = 1;
+    uint64_t prev = seed;
+    uint64_t Sum = 0;
+    for(unsigned i = 0; i < n; i++)
+    {
+        uint64_t next = a*prev + b;
+        V[i] = (next % (max - min + 1)) + min;
+        prev = next;
+        Sum += V[i];
+    }
+    return (double)Sum/(double)n;
+}*/
+
+double RandomizeArray(unsigned seed, unsigned* V, size_t n, unsigned min, unsigned max) {
+    uint64_t a = 6364136223846793005;
+    unsigned b = 1;
+    unsigned T;
+    uint64_t lookUpA;
+    uint64_t lookUpB;
+    uint64_t sum = 0;
+
+#pragma omp parallel shared(T, V, lookUpA, lookUpB)
+    {
+        unsigned t = (unsigned) omp_get_thread_num();
+#pragma omp single
+        {
+            T = (unsigned) omp_get_num_threads();
+
+            lookUpA = pow(a, T);
+            lookUpB = getB(T - 1);
+        }
+        uint64_t prev = seed;
+        uint64_t elem;
+        for (unsigned i = t; i < n; i += T) {
+            if (i == t) {
+                elem = pow(a, i + 1) * prev + getB(i) + b;
+                V[i] = (elem % (max - min + 1)) + min;
+                prev = elem;
+            } else {
+                elem = lookUpA * prev + lookUpB + b;
+                V[i] = (elem % (max - min + 1)) + min;
+                prev = elem;
+            }
+        }
+    }
+
+    for (unsigned i = 0; i < n; ++i) {
+        sum += V[i];
+    }
+
+    return (double)sum/(double)n;
+}
+
+ExperimentResult runRandomizeExperiment(r_t f) {
+    size_t ArrayLength = 1000000;
+    unsigned Array[ArrayLength];
+    unsigned Seed = 100;
+
+    double t0, t1, result;
+
+    t0 = omp_get_wtime();
+    result = f(Seed, (unsigned *)&Array, ArrayLength, 1, 255);
+    t1 = omp_get_wtime();
+
+    return {result, t1 - t0};
+}
+
+void randomizeExperiment(r_t f) {
+    set_num_threads(1);
+    ExperimentResult R = runRandomizeExperiment(f);
+    double T1 = R.time;
+
+
+    printf("%10s\t %10s\t %10s\n", "Result", "Time", "Acceleration");
+
+    printf("%10g\t %10g\t% 10g\n", R.result, R.time, T1/R.time);
+    // printf("%d,%g,%g\n", 1, R.time, T1 / R.time);
+
+    for (int T = 2; T <= omp_get_num_procs(); ++T) {
+        set_num_threads(T);
+        ExperimentResult result = runRandomizeExperiment(f);
+        printf("%10g\t %10g\t %10g\n", result.result, result.time, T1/result.time);
+        // printf("%d,%g,%g\n", T, result.time, T1 / result.time);
+    }
+
+    cout << endl;
+}
+
+unsigned Fibonacci(unsigned n) {
+    if (n <= 2)
+        return 1;
+    return Fibonacci(n - 1) + Fibonacci(n - 2);
+}
+
+unsigned Fibonacci_omp(unsigned n) {
+    if (n <= 2)
+        return 1;
+    unsigned x1, x2;
+    unsigned result;
+#pragma omp parallel
+    {
+#pragma omp task
+        {
+            x1 = Fibonacci_omp(n - 1);
+        }
+#pragma omp task
+        {
+            x2 = Fibonacci_omp(n - 2);
+        }
+#pragma omp taskwait
+        result = x1 + x2;
+    }
+
+    return result;
+}
+
+ExperimentResult runExperimentFib() {
+    double t0, t1, result;
+
+    t0 = omp_get_wtime();
+    result = Fibonacci_omp(13);
+    t1 = omp_get_wtime();
+
+    return {result, t1 - t0};
+}
+
+void experimentFib() {
+    set_num_threads(1);
+    ExperimentResult R = runExperimentFib();
+    double T1 = R.time;
+
+
+    printf("%10s\t %10s\t %10s\n", "Result", "Time", "Acceleration");
+
+    printf("%10g\t %10g\t% 10g\n", R.result, R.time, T1/R.time);
+    // printf("%d,%g,%g\n", 1, R.time, T1 / R.time);
+
+    for (int T = 2; T <= omp_get_num_procs(); ++T) {
+        set_num_threads(T);
+        ExperimentResult result = runExperimentFib();
+        printf("%10g\t %10g\t %10g\n", result.result, result.time, T1/result.time);
+        // printf("%d,%g,%g\n", T, result.time, T1 / result.time);
+    }
+
+    cout << endl;
+}
+
+int main() {
+    //set_num_threads(1);
+
+    std::cout << "randomize" << std::endl;
+    randomizeExperiment(RandomizeArray);
 
 
     return 0;
