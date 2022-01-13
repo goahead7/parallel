@@ -48,15 +48,6 @@ ElementType reduce_vector(const ElementType* V, std::size_t n, BinaryFn f, Eleme
         reduction_partial_results[t].value = accum;
     };
 
-//    auto thread_proc_2 = [=] (unsigned t) {
-//        constexpr std::size_t k = 2;
-//        std::size_t s = 1;
-//
-//        while((t % (s * k)) == 0 && s + t < T) {
-//            reduction_partial_results[T].value = f(reduction_partial_results[t].value, reduction_partial_results[t + s].value);
-//            s *= k;
-//        }
-//    };
 
     auto thread_proc_2_ = [=] (unsigned t, std::size_t s) {
         if(((t % (s * k)) == 0) && (t + s < T))
